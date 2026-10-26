@@ -23,6 +23,10 @@
 # Visual Studio cache directory
 .vs/
 
+# 本机编辑器配置与连接信息
+/.vscode/
+/.pipeline/
+
 # Gradle cache directory
 .gradle/
 
