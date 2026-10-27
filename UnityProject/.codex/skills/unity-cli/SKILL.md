@@ -8,7 +8,7 @@ description: 使用本项目 Unity CLI 查询和验证 Unity Editor/Development 
 ## 执行入口
 
 从 Unity 项目执行 `python .codex/scripts/workflow.py doctor`，或通过绝对路径调用该脚本。路径由脚本定位，不借用其他打开的工程。
-CLI 为 `Tools/unity.exe`，不是 Unity Editor 自身的同名可执行文件。
+CLI 优先使用 `UNITY_CLI_PATH` 或项目 `Tools/unity.exe`，否则查找 PATH 和 Windows 本地安装目录。它不是 Unity Editor 自身的同名可执行文件；不自动安装、升级或复制。旧版 `command/status` 与新版 `request/pipeline list` 按实际帮助识别。
 
 先运行 `unity list` 获取当前注册命令，再按需阅读 [操作规程](references/operations.md)。
 示例：`python .codex/scripts/workflow.py unity query list_open_scenes`。

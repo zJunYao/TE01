@@ -151,8 +151,9 @@ def doctor(run):
         from .core import read_json
         package = read_json(context.project / "Packages" / "com.unity.pipeline" / "package.json")
         version = (context.project / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8")
-        if not context.cli.is_file() or not context.solution.is_file():
-            blocked("CLI or generated solution missing; see project instructions.")
+        cli_mode = Unity(run).detect_cli()
+        if not context.solution.is_file():
+            blocked("缺少 Unity 生成的解决方案；请在当前工程编辑器中重新生成项目文件。")
         missing = [name for name in ("dotnet", "git") if not shutil.which(name)]
         if missing:
             blocked("Required tools missing: " + ", ".join(missing))
@@ -160,7 +161,8 @@ def doctor(run):
         require_success(result, "CLI version")
         dotnet = require_success(run.execute(["dotnet", "--version"], timeout=15), ".NET version").strip()
         return {"python": sys.version, "dotnet": shutil.which("dotnet"), "git": shutil.which("git"),
-                "unity": version.strip(), "pipeline": package["version"], "cli": result.stdout.strip(), "dotnetVersion": dotnet,
+                "unity": version.strip(), "pipeline": package["version"], "cli": result.stdout.strip(),
+                "cliPath": str(context.cli), "cliMode": cli_mode, "dotnetVersion": dotnet,
                 "optionalDependencies": {name: importlib.util.find_spec(name) is not None
                                          for name in ("yaml", "markdown_it", "openpyxl", "playwright")}}
 

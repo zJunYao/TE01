@@ -24,7 +24,7 @@
 
 ## 环境与预检
 
-当前基线为 Unity 6000.0.56f1、CLI 1.0.0-beta.3、Pipeline 0.3.1-exp.1，不要求升级。
+历史规划基线为 Unity 6000.0.56f1、CLI 1.0.0-beta.3、Pipeline 0.3.1-exp.1；实际版本以项目文件及 `doctor` 输出为准，不要求升级。工作流按帮助检测旧版 `command/status` 或新版 `request/pipeline list` 协议，本机已验证新版 CLI 0.1.0-beta.5 的入口。
 需要 Python 3.11+、Git、项目对应 .NET SDK、Unity 生成的完整解决方案。
 [requirements.txt](../UnityProject/.codex/scripts/requirements.txt) 描述可选领域依赖；缺工具时报告阻塞，由维护者决定安装。
 浏览器转换另需已安装的 Playwright Chromium；脚本不会自动下载。
@@ -37,11 +37,11 @@ python .codex/scripts/workflow.py check
 python .codex/scripts/workflow.py unity list
 ```
 
-CLI 位于 `Tools/unity.exe`，不是 Unity Editor 的同名二进制。
+CLI 按以下顺序选择：显式环境变量 `UNITY_CLI_PATH`、项目内 `Tools/unity.exe`、PATH 中的 `unity`、Windows 的 `%LOCALAPPDATA%/Unity/bin/unity.exe`。显式配置无效时直接报错，不静默回退。该程序必须是 Unity CLI，不是 Unity Editor 的同名二进制；工作流不会安装、升级或复制工具。
 每次 Editor 操作绑定规范化项目路径；新操作要求该项目唯一且 ready。忙时只允许已审核的状态/诊断查询；
 轮询始终重新确认项目唯一性，错误项目、多实例或持续断开均阻塞。
 不通过读取/打印 `Library/Pipeline` 描述文件诊断鉴权，不自动启动其他项目代替。
-Linux/macOS CI 可做离线检查；Editor 验收需要可运行该项目 CLI 的受支持 runner，当前仓库自带 Windows 可执行文件。
+Linux/macOS CI 可做离线检查；Editor 验收需要已安装兼容 CLI 的受支持 runner，当前仓库不包含 CLI 二进制。新版 CLI 使用实例列表筛选当前工程，再查询该工程的 `editor_status`；服务未启动、工程重复或状态返回工程不符时阻塞，不转用其他工程。
 
 ## 验证矩阵
 

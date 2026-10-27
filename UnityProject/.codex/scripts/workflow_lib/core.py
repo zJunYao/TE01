@@ -90,6 +90,25 @@ def within(path, root):
     return path
 
 
+def resolve_unity_cli(project):
+    """优先显式配置和项目副本，再复用已有 CLI；不安装工具。"""
+    explicit = os.environ.get("UNITY_CLI_PATH")
+    if explicit:
+        # 显式配置错误时保留该路径并报告，不静默转用其他程序。
+        return Path(explicit).expanduser().resolve()
+    local = Path(project) / "Tools" / "unity.exe"
+    if local.is_file():
+        return local
+    executable = shutil.which("unity")
+    if executable:
+        return Path(executable).resolve()
+    if os.environ.get("LOCALAPPDATA"):
+        installed = Path(os.environ["LOCALAPPDATA"]) / "Unity" / "bin" / "unity.exe"
+        if installed.is_file():
+            return installed
+    return local
+
+
 class Context:
     def __init__(self, project=None):
         self.project = Path(project or Path(__file__).resolve().parents[3]).resolve()
@@ -99,7 +118,7 @@ class Context:
         self.repo = self.project.parent
         self.scripts = self.project / ".codex" / "scripts"
         self.runs = self.project / ".codex" / "runs"
-        self.cli = self.project / "Tools" / "unity.exe"
+        self.cli = resolve_unity_cli(self.project)
         self.solution = self.project / "UnityProject.sln"
 
 

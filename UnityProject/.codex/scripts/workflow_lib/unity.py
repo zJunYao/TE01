@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import time
 
 from .core import WorkflowError, blocked, consume_approval, digest, make_plan
@@ -25,6 +26,8 @@ READ_ONLY = frozenset({
 
 # Explicit catalog, not a prefix heuristic. Only implemented return/poll contracts are admitted.
 MUTATIONS = {
+    "import_asset": {"dry_run": True, "confirm": True, "poll": None},
+    "set_import_settings": {"dry_run": True, "confirm": False, "poll": None},
     "tengine_bake_ugui": {"dry_run": True, "confirm": True, "poll": None},
     "delete_asset": {"dry_run": True, "confirm": True, "poll": None},
     "set_player_settings": {"dry_run": True, "confirm": True, "poll": None},
@@ -178,23 +181,61 @@ class Unity:
         self.run = run
         self.context = run.context
         self.capabilities = None
+        self.cli_mode = None
+
+    def detect_cli(self):
+        """按实际帮助识别协议，避免把编辑器同名程序作为 CLI 使用。"""
+        if self.cli_mode is not None:
+            return self.cli_mode
+        if not self.context.cli.is_file():
+            blocked(f"未找到 Unity CLI：{self.context.cli}；可通过 UNITY_CLI_PATH 指定已有 CLI。")
+        result = self.run.execute([self.context.cli, "--help"], timeout=15)
+        if result.returncode:
+            blocked("无法读取 Unity CLI 帮助；请检查指定的程序是否为 Unity CLI。")
+        names = set(re.findall(r"^\s{2}([\w-]+)(?:[|\s])", result.stdout, re.M))
+        if {"command", "status"} <= names:
+            self.cli_mode = "legacy"
+        elif {"request", "pipeline"} <= names:
+            self.cli_mode = "request"
+        else:
+            blocked("不支持的 Unity CLI 命令协议；不会自动安装、升级或转用 Unity 编辑器。")
+        return self.cli_mode
 
     def raw(self, arguments, timeout=45, mutating=False):
-        if not self.context.cli.is_file():
-            blocked(f"Unity CLI is missing: {self.context.cli}")
+        mode = self.detect_cli()
+        arguments = list(arguments)
+        if mode == "request" and arguments and arguments[0] == "command":
+            arguments[0] = "request"
+        flags = ["--no-log-proxy"] if mode == "legacy" else ["--quiet"]
         result = self.run.execute(
-            [self.context.cli, *arguments, "--format", "json", "--non-interactive", "--no-log-proxy"],
+            [self.context.cli, *arguments, "--format", "json", "--non-interactive", *flags],
             timeout=timeout, mutating=mutating,
         )
         if result.returncode:
             # Connection errors are blockers, never a successful validation.
             if any(code in result.stdout + result.stderr for code in ("NO_INSTANCES", "UNREACHABLE", "CONNECTION", "ECONNREFUSED", "TIMEOUT",
-                                                      "502 Bad Gateway", "503 Service Unavailable")):
+                                                       "502 Bad Gateway", "503 Service Unavailable", "No Pipeline instance found")):
                 blocked("Unity CLI connection unavailable; see command evidence.")
             raise WorkflowError(f"Unity CLI exited with {result.returncode}; see command evidence.")
         return result.stdout
 
     def ready(self, require_ready=True):
+        if self.detect_cli() == "request":
+            data = decode_response(self.raw(["pipeline", "list"]))
+            if not isinstance(data, dict) or not isinstance(data.get("instances"), list):
+                blocked("无法识别 CLI 实例列表，停止以避免连接错误工程。")
+            matches = [item for item in data["instances"] if isinstance(item, dict)
+                       and isinstance(item.get("projectPath"), str)
+                       and Path(item["projectPath"]).resolve() == self.context.project.resolve()]
+            if len(matches) != 1:
+                blocked(f"当前工程必须恰有一个 Unity 实例，实际为 {len(matches)}。")
+            instance = matches[0]
+            if instance.get("isRunning") is not True or not instance.get("pipelineServer"):
+                blocked("CLI 未发现当前工程的 Pipeline 服务；这不等于服务未启动。若编辑器已启动服务，请检查 CLI 与 Pipeline 的发现及鉴权协议兼容性。")
+            status = decode_response(self.raw(["command", "--project-path", str(self.context.project), "editor_status"]))
+            if not isinstance(status, dict):
+                blocked("无法识别当前工程的 Editor 状态。")
+            return parse_instances(json.dumps({"instances": [status]}), self.context.project, require_ready)
         return parse_instances(self.raw(["status", "--project-path", str(self.context.project)]),
                                self.context.project, require_ready)
 
@@ -292,6 +333,10 @@ class Unity:
         self.ready()
         policy = MUTATIONS[command]
         preview = self.call(command, {**parameters, "dry_run": True}) if policy["dry_run"] else {"staticOnly": True}
+        if command == "set_import_settings" and preview.get("unknown"):
+            blocked("存在无法应用的导入设置，停止写入：" + str(preview["unknown"]))
+        if command == "import_asset":
+            inputs = (*inputs, parameters["source"])
         return make_plan(self.run, "unity", command, parameters, high_risk=True, inputs=inputs, preview=preview)
 
     def apply(self, plan, approval_file):
@@ -307,7 +352,10 @@ class Unity:
         if digest(current_preview) != digest(plan.get("preview")):
             blocked("Editor preview changed since authorization; inspect the new state and authorize a fresh preview.")
         consume_approval(self.run, plan, approval_file)
-        result = self.call(command, {**plan["parameters"], "confirm": True, "dry_run": False}, mutating=True)
+        arguments = {**plan["parameters"], "dry_run": False}
+        if MUTATIONS[command]["confirm"]:
+            arguments["confirm"] = True
+        result = self.call(command, arguments, mutating=True)
         poll = MUTATIONS[command]["poll"]
         if poll:
             if not isinstance(result, dict) or result.get("status") != "queued":

@@ -12,11 +12,13 @@ python .codex/scripts/workflow.py unity query get_player_settings
 ```
 
 参数放在 JSON 文件中，通过 `--params-file` 传入，避免 PowerShell 转义差异。
-直接查询底层 CLI 时固定 `--project-path` 和 `--format json`：
+推荐使用工作流入口以自动识别 CLI 协议。必须直接查询时固定 `--project-path` 和 `--format json`，并选择已确认的 CLI 路径；以下示例针对支持 `request` 的版本（旧版使用 `command`）：
 
 ```powershell
-& ./Tools/unity.exe command --project-path . list_tests --mode all --format json
+& $env:UNITY_CLI_PATH request --project-path . list_tests --mode all --format json
 ```
+
+`UNITY_CLI_PATH` 仅在需要指定路径时设置；工作流也支持项目内副本、PATH 和 Windows 本地安装目录。`doctor` 报告实际路径、版本和协议，不读取或显示鉴权描述文件。CLI 可用不代表 Pipeline 已连接；服务未启动时应在当前工程编辑器中检查编译和 Pipeline 服务，不安装另一套工具兜底。
 
 ## 预览、授权、执行
 

@@ -4,7 +4,7 @@
 
 ## 工程事实
 
-- 项目根是本目录，CLI 为 `Tools/unity.exe`，解决方案为 `UnityProject.sln`。
+- 项目根是本目录，CLI 优先使用 `UNITY_CLI_PATH` 或 `Tools/unity.exe`，缺省复用 PATH 或 Windows 本地安装目录中的 Unity CLI；不使用 Unity Editor 同名程序。解决方案为 `UnityProject.sln`。
 - 配置源位于仓库根 `Configs/GameConfig`，不是 Unity 项目内的 `Configs`。
 - Unity 版本取 `ProjectSettings/ProjectVersion.txt`；Pipeline 能力以本项目注册命令及包内 `Documentation~` 为准。
 - `.codex/skills` 是技能唯一源。按仓库入口路由读取；不要复制到第二套目录，也不要假设所有 Codex 客户端都会自动发现此目录。
