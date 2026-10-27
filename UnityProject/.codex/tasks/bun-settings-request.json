@@ -1,0 +1,14 @@
+{
+  "asset": "Assets/AssetRaw/Actor/Food/Bun/BunIdle.png",
+  "settings": {
+    "textureType": "Sprite",
+    "spriteImportMode": "Single",
+    "maxTextureSize": 256,
+    "spritePixelsPerUnit": 100,
+    "alphaIsTransparency": true,
+    "mipmapEnabled": false,
+    "isReadable": false,
+    "filterMode": "Bilinear",
+    "wrapMode": "Clamp"
+  }
+}

@@ -182,6 +182,22 @@ class 资源导入策略测试(unittest.TestCase):
     def setUp(self):
         self.unity = Unity(SimpleNamespace(context=SimpleNamespace()))
 
+    def test_创建目录只用静态预览且不发送不支持的参数(self):
+        参数 = {'path': 'Assets/角色/Sprites'}
+        with patch.object(self.unity, 'ready'), patch.object(self.unity, 'call') as 调用, \
+                patch('workflow_lib.unity.make_plan') as 生成计划:
+            self.unity.preview('create_folder', 参数)
+        调用.assert_not_called()
+        self.assertEqual(生成计划.call_args.kwargs['preview'], {'staticOnly': True})
+        self.unity.capabilities = {'create_folder'}
+        计划 = {'kind': 'unity', 'command': 'create_folder', 'parameters': 参数,
+              'preview': {'staticOnly': True}}
+        with patch.object(self.unity, 'ready'), patch.object(self.unity, 'discover'), \
+                patch.object(self.unity, 'call', return_value={}) as 调用, \
+                patch('workflow_lib.unity.consume_approval'):
+            self.unity.apply(计划, '批准.json')
+        调用.assert_called_once_with('create_folder', 参数, mutating=True)
+
     def test_导入预览绑定源文件(self):
         参数 = {'source': '本地素材.png', 'path': 'Assets/怪物.png'}
         with patch.object(self.unity, 'ready'), patch.object(self.unity, 'call', return_value={}), \
@@ -200,7 +216,8 @@ class 资源导入策略测试(unittest.TestCase):
     def test_实际写入仅向支持命令发送确认参数(self):
         for 命令, 参数, 需要确认 in (
                 ('import_asset', {'source': '源.png', 'path': 'Assets/怪物.png'}, True),
-                ('set_import_settings', {'asset': 'Assets/怪物.png', 'settings': {}}, False)):
+                ('set_import_settings', {'asset': 'Assets/怪物.png', 'settings': {}}, False),
+                ('move_asset', {'asset': 'Assets/旧.png', 'destination': 'Assets/新.png'}, False)):
             with self.subTest(命令=命令):
                 self.unity.capabilities = {命令}
                 计划 = {'kind': 'unity', 'command': 命令, 'parameters': 参数, 'preview': {}}

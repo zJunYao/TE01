@@ -26,6 +26,8 @@ READ_ONLY = frozenset({
 
 # Explicit catalog, not a prefix heuristic. Only implemented return/poll contracts are admitted.
 MUTATIONS = {
+    "create_folder": {"dry_run": False, "confirm": False, "poll": None},
+    "move_asset": {"dry_run": True, "confirm": False, "poll": None},
     "import_asset": {"dry_run": True, "confirm": True, "poll": None},
     "set_import_settings": {"dry_run": True, "confirm": False, "poll": None},
     "tengine_bake_ugui": {"dry_run": True, "confirm": True, "poll": None},
@@ -348,11 +350,14 @@ class Unity:
         command = plan["command"]
         if command not in self.capabilities:
             blocked(f"Missing capability: {command}")
-        current_preview = self.call(command, {**plan["parameters"], "dry_run": True})
+        current_preview = (self.call(command, {**plan["parameters"], "dry_run": True})
+                           if MUTATIONS[command]["dry_run"] else {"staticOnly": True})
         if digest(current_preview) != digest(plan.get("preview")):
             blocked("Editor preview changed since authorization; inspect the new state and authorize a fresh preview.")
         consume_approval(self.run, plan, approval_file)
-        arguments = {**plan["parameters"], "dry_run": False}
+        arguments = dict(plan["parameters"])
+        if MUTATIONS[command]["dry_run"]:
+            arguments["dry_run"] = False
         if MUTATIONS[command]["confirm"]:
             arguments["confirm"] = True
         result = self.call(command, arguments, mutating=True)
