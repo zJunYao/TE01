@@ -1,0 +1,6 @@
+{
+    "name": "Game.Test.PlayMode",
+    "rootNamespace": "GameLogic.Test.Tests",
+    "references": ["GameLogic"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

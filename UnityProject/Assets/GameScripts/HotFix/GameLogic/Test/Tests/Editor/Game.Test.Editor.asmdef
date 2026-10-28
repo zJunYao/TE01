@@ -1,0 +1,7 @@
+{
+    "name": "Game.Test.Editor",
+    "rootNamespace": "GameLogic.Test.Tests",
+    "references": ["GameLogic"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
