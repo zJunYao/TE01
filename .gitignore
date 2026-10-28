@@ -21,3 +21,6 @@ Tools/GameEventSourceGenerator/*/obj
 
 #openspec
 openspec/
+
+# 本地 Unity CLI 可执行文件，不纳入版本控制
+/UnityProject/Tools/unity.exe
